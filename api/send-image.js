@@ -14,5 +14,9 @@ export default async function handler(req, res) {
             message: `Link ảnh hướng dẫn của bạn đây: ${imageUrl}` 
         });
     }
-    return res.status(404).json({ error: "Không tìm thấy ảnh" });
+    // Thay vì trả về json phức tạp, hãy trả về text đơn giản
+if (imageUrl) {
+    return res.status(200).send(`Link ảnh hướng dẫn: ${imageUrl}`);
+}
+return res.status(404).send("Không tìm thấy hình ảnh.");
 }
