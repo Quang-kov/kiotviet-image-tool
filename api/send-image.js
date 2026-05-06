@@ -1,5 +1,7 @@
 export default async function handler(req, res) {
-    const { image_tag } = req.body;
+    // Cho phép nhận cả từ body hoặc query để tránh lỗi
+    const image_tag = req.body?.image_tag || req.query?.image_tag;
+
     const imageMapping = {
         "[MODEL_paper_setup]": "https://img.kiotviet.vn/huong-dan/lap-giay.jpg",
         "[MODEL_self_test]": "https://img.kiotviet.vn/huong-dan/self-test.jpg"
@@ -8,15 +10,10 @@ export default async function handler(req, res) {
     const imageUrl = imageMapping[image_tag];
 
     if (imageUrl) {
-        // Trả về cho ElevenLabs để nó "biết" link ảnh
-        return res.status(200).json({ 
-            success: true, 
-            message: `Link ảnh hướng dẫn của bạn đây: ${imageUrl}` 
-        });
+        // Trả về văn bản thuần túy để ElevenLabs dễ đọc
+        return res.status(200).send(`Link ảnh hướng dẫn của anh đây: ${imageUrl}`);
     }
-    // Thay vì trả về json phức tạp, hãy trả về text đơn giản
-if (imageUrl) {
-    return res.status(200).send(`Link ảnh hướng dẫn: ${imageUrl}`);
-}
-return res.status(404).send("Không tìm thấy hình ảnh.");
+
+    // Nếu không tìm thấy tag hoặc tag trống
+    return res.status(200).send("Em đã tìm trong kho ảnh nhưng chưa thấy hình minh họa cho lỗi này, anh mô tả thêm giúp em nhé.");
 }
