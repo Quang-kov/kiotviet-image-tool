@@ -1,30 +1,18 @@
-const axios = require('axios');
-
-const imageMapping = {
-    "[MODEL_paper_setup]": "https://domain.com/anh-1.jpg", // Thay link ảnh thật của anh
-    "[MODEL_self_test]": "https://domain.com/anh-2.jpg"
-};
-
 export default async function handler(req, res) {
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+    const { image_tag } = req.body;
+    const imageMapping = {
+        "[MODEL_paper_setup]": "https://img.kiotviet.vn/huong-dan/lap-giay.jpg",
+        "[MODEL_self_test]": "https://img.kiotviet.vn/huong-dan/self-test.jpg"
+    };
 
-    // ElevenLabs sẽ gửi image_tag và conversation_id
-    const { image_tag, conversation_id } = req.body;
     const imageUrl = imageMapping[image_tag];
 
-    if (!imageUrl) return res.status(404).json({ error: "Tag không tồn tại" });
-
-    try {
-        await axios.post(`https://api.freshchat.com/v2/conversations/${conversation_id}/messages`, {
-            message_parts: [{ image: { url: imageUrl } }]
-        }, {
-            headers: {
-                'Authorization': `Bearer CHEN_TOKEN_FRESHCHAT_CUA_ANH_VAO_DAY`,
-                'Content-Type': 'application/json'
-            }
+    if (imageUrl) {
+        // Trả về cho ElevenLabs để nó "biết" link ảnh
+        return res.status(200).json({ 
+            success: true, 
+            message: `Link ảnh hướng dẫn của bạn đây: ${imageUrl}` 
         });
-        return res.status(200).json({ success: true });
-    } catch (error) {
-        return res.status(500).json({ error: error.message });
     }
+    return res.status(404).json({ error: "Không tìm thấy ảnh" });
 }
