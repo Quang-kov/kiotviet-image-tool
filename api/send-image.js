@@ -1,38 +1,54 @@
 export default async function handler(req, res) {
-    const image_tag = req.body?.image_tag || req.query?.image_tag;
-    
+    const { image_tag } = req.body || req.query;
+
     if (!image_tag) {
-        return res.status(200).send("Thiếu mã thẻ hình ảnh.");
+        return res.status(400).send("Vui lòng cung cấp image_tag.");
     }
 
-    // URL của file Google Sheets đã xuất bản dưới dạng CSV
-    // (Cách lấy: Vào Google Sheets -> File -> Share -> Publish to web -> Chọn định dạng CSV)
-    const SHEET_CSV_URL = "LINK_URL_CSV_CUA_ANH_TAI_DAY";
+    // Link CSV anh vừa tạo
+    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRYBIW8log388fVI6fPpExqdzQSlrWQtCiciERtZzSLjUlUWIkQ3LPUuA_NZaT673DHhbFRTQWbsmYB/pub?output=csv";
 
     try {
         const response = await fetch(SHEET_CSV_URL);
-        const data = await response.text();
-        
-        // Tách dữ liệu CSV thành các dòng và mảng
-        const rows = data.split('\n').map(row => row.split(','));
-        
-        // Tìm dòng có Mã thẻ khớp với image_tag (xử lý bỏ qua khoảng trắng/viết hoa)
-        const foundRow = rows.find(row => {
-            const cleanTagInSheet = row[1]?.replace(/[\[\]\s]/g, '').toUpperCase();
-            const cleanInputTag = image_tag.replace(/[\[\]\s]/g, '').toUpperCase();
-            return cleanTagInSheet === cleanInputTag;
-        });
+        const csvData = await response.text();
 
-        if (foundRow) {
-            const imageUrl = foundRow[0]; // Cột A
-            const description = foundRow[2] || "hướng dẫn"; // Cột C
-            return res.status(200).send(`Dạ, em gửi ảnh ${description} cho anh/chị: ${imageUrl}`);
+        // Tách dữ liệu thành các dòng
+        const rows = csvData.split('\n');
+        
+        // Hàm chuẩn hóa chuỗi: bỏ dấu, bỏ khoảng trắng, viết hoa để so sánh chính xác
+        const normalize = (str) => {
+            return str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\[\]\s_]/g, "").toUpperCase() : "";
+        };
+
+        let foundImageUrl = null;
+        let foundContext = "";
+
+        // Duyệt qua từng dòng (bỏ qua dòng tiêu đề đầu tiên)
+        for (let i = 1; i < rows.length; i++) {
+            const columns = rows[i].split(',');
+            if (columns.length < 2) continue;
+
+            const imageUrl = columns[0].trim();
+            const tagInSheet = columns[1].trim();
+            const context = columns[2] ? columns[2].trim() : "hướng dẫn";
+
+            // So sánh Tag từ ElevenLabs gửi sang với Tag trong Sheets
+            if (normalize(tagInSheet) === normalize(image_tag)) {
+                foundImageUrl = imageUrl;
+                foundContext = context;
+                break;
+            }
+        }
+
+        if (foundImageUrl) {
+            // Trả về định dạng mà Chatbot hoặc AI có thể hiển thị
+            return res.status(200).send(`[BOT]: Dạ, em gửi anh/chị hình ảnh ${foundContext}: ${foundImageUrl}`);
         } else {
-            return res.status(200).send("Em đã tìm trong kho dữ liệu nhưng chưa thấy ảnh phù hợp cho mã này.");
+            return res.status(200).send(`Không tìm thấy ảnh cho mã thẻ: ${image_tag}`);
         }
 
     } catch (error) {
-        console.error(error);
-        return res.status(500).send("Lỗi kết nối kho dữ liệu hình ảnh.");
+        console.error("Lỗi đọc file Sheets:", error);
+        return res.status(500).send("Lỗi hệ thống khi truy xuất kho ảnh.");
     }
 }
