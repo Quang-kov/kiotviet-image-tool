@@ -1,19 +1,38 @@
 export default async function handler(req, res) {
-    // Cho phép nhận cả từ body hoặc query để tránh lỗi
     const image_tag = req.body?.image_tag || req.query?.image_tag;
-
-    const imageMapping = {
-        "[MODEL_paper_setup]": "https://img.kiotviet.vn/huong-dan/lap-giay.jpg",
-        "[MODEL_self_test]": "https://img.kiotviet.vn/huong-dan/self-test.jpg"
-    };
-
-    const imageUrl = imageMapping[image_tag];
-
-    if (imageUrl) {
-        // Trả về văn bản thuần túy để ElevenLabs dễ đọc
-        return res.status(200).send(`Link ảnh hướng dẫn của anh đây: ${imageUrl}`);
+    
+    if (!image_tag) {
+        return res.status(200).send("Thiếu mã thẻ hình ảnh.");
     }
 
-    // Nếu không tìm thấy tag hoặc tag trống
-    return res.status(200).send("Em đã tìm trong kho ảnh nhưng chưa thấy hình minh họa cho lỗi này, anh mô tả thêm giúp em nhé.");
+    // URL của file Google Sheets đã xuất bản dưới dạng CSV
+    // (Cách lấy: Vào Google Sheets -> File -> Share -> Publish to web -> Chọn định dạng CSV)
+    const SHEET_CSV_URL = "LINK_URL_CSV_CUA_ANH_TAI_DAY";
+
+    try {
+        const response = await fetch(SHEET_CSV_URL);
+        const data = await response.text();
+        
+        // Tách dữ liệu CSV thành các dòng và mảng
+        const rows = data.split('\n').map(row => row.split(','));
+        
+        // Tìm dòng có Mã thẻ khớp với image_tag (xử lý bỏ qua khoảng trắng/viết hoa)
+        const foundRow = rows.find(row => {
+            const cleanTagInSheet = row[1]?.replace(/[\[\]\s]/g, '').toUpperCase();
+            const cleanInputTag = image_tag.replace(/[\[\]\s]/g, '').toUpperCase();
+            return cleanTagInSheet === cleanInputTag;
+        });
+
+        if (foundRow) {
+            const imageUrl = foundRow[0]; // Cột A
+            const description = foundRow[2] || "hướng dẫn"; // Cột C
+            return res.status(200).send(`Dạ, em gửi ảnh ${description} cho anh/chị: ${imageUrl}`);
+        } else {
+            return res.status(200).send("Em đã tìm trong kho dữ liệu nhưng chưa thấy ảnh phù hợp cho mã này.");
+        }
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).send("Lỗi kết nối kho dữ liệu hình ảnh.");
+    }
 }
